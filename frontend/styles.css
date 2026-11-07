@@ -1,0 +1,8 @@
+:root {
+    --color-red-brown: oklch(40.61% 0.1159 44.47);
+    --color-red-button: oklch(63.61% 0.1159 42.89 / 0.6308);
+    --color-red-brown-button: oklch(46.25% 0.1261 42.89);
+    --color-creamy2: oklch(83.46% 0.0457 79.25);
+    --color-creamy: oklch(97.01% 0.0141 74.43);
+    --color-creamy-button: oklch(94.2% 0.0261 76.79);
+}
