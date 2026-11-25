@@ -22,3 +22,4 @@ Exceptions: a couple of meaningful commits, or `develop → master` merges.
 
 ## Enforcement
 `gitlint-action@v1.2.0` — CI fails on violation.
+If branch is not `develop` or `master`, the rules will be enforced for open PR.
