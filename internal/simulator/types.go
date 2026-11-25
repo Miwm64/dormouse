@@ -131,6 +131,11 @@ type HeatPoint struct {
 	Duration float64 `json:"duration"`
 }
 
+type activeHeatPoint struct {
+	point     HeatPoint
+	remaining float64
+}
+
 // FailureEvent is a valid physical result
 type FailureEvent struct {
 	Kind        FailureKind `json:"kind"`
