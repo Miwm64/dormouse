@@ -10,6 +10,8 @@ type Engine struct {
 
 	grid      GridSpec
 	solidMask []uint8
+	time      float64 // seconds
+	failure   *FailureEvent
 }
 
 func NewEngine() *Engine {
@@ -71,15 +73,20 @@ func (e *Engine) Reset() error {
 }
 
 func (e *Engine) GetState() EngineState {
-	panic("not implemented")
+	return e.state
 }
 
 func (e *Engine) GetTime() float64 {
-	panic("not implemented")
+	return e.time
 }
 
 func (e *Engine) GetFailure() *FailureEvent {
-	panic("not implemented")
+	if e.failure == nil {
+		return nil
+	}
+
+	failure := *e.failure
+	return &failure
 }
 
 func (e *Engine) GetGridView() (GridView, error) {
