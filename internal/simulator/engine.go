@@ -1,11 +1,15 @@
 package simulator
 
 import (
+	"fmt"
 	"math/rand"
 )
 
 type Engine struct {
 	state EngineState
+
+	grid      GridSpec
+	solidMask []uint8
 }
 
 func NewEngine() *Engine {
@@ -17,7 +21,33 @@ func NewEngine() *Engine {
 var _ SimulatorEngine = (*Engine)(nil)
 
 func (e *Engine) Init(shape ShapeData) error {
-	panic("not implemented")
+	if shape.Grid.LengthX <= 0 ||
+		shape.Grid.LengthY <= 0 ||
+		shape.Grid.LengthZ <= 0 ||
+		shape.Grid.CellSizeM <= 0 {
+		return fmt.Errorf("invalid grid dimensions")
+	}
+
+	cellCount := shape.Grid.LengthX *
+		shape.Grid.LengthY *
+		shape.Grid.LengthZ
+
+	if len(shape.SolidMask) != cellCount {
+		return fmt.Errorf(
+			"solid mask length is %d, expected %d",
+			len(shape.SolidMask),
+			cellCount,
+		)
+	}
+
+	if e.state == Running {
+		return fmt.Errorf("cannot initialize engine while running")
+	}
+
+	e.state = Ready
+	e.grid = shape.Grid
+	e.solidMask = append([]uint8(nil), shape.SolidMask...)
+	return nil
 }
 
 func (e *Engine) SetPhysicsParams(params PhysicsParams) error {
