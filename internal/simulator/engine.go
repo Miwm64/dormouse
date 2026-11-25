@@ -8,10 +8,13 @@ import (
 type Engine struct {
 	state EngineState
 
-	grid      GridSpec
-	solidMask []uint8
-	time      float64 // seconds
-	failure   *FailureEvent
+	grid         GridSpec
+	solidMask    []uint8
+	physics      PhysicsParams
+	temperatures []float32
+
+	time    float64 // seconds
+	failure *FailureEvent
 }
 
 func NewEngine() *Engine {
@@ -53,7 +56,44 @@ func (e *Engine) Init(shape ShapeData) error {
 }
 
 func (e *Engine) SetPhysicsParams(params PhysicsParams) error {
-	panic("not implemented")
+	if e.state != Ready && e.state != MaterialFailed {
+		return fmt.Errorf(
+			"cannot set physics parameters in state %d",
+			e.state,
+		)
+	}
+
+	if !isValidMaterial(params.MaterialID) {
+		return fmt.Errorf("unknown material: %q", params.MaterialID)
+	}
+
+	if !isValidEnvironment(params.EnvironmentID) {
+		return fmt.Errorf("unknown environment: %q", params.EnvironmentID)
+	}
+
+	if params.InitialTemp <= 0 {
+		return fmt.Errorf("initial temperature must be positive")
+	}
+
+	if params.AmbientTemp <= 0 {
+		return fmt.Errorf("ambient temperature must be positive")
+	}
+
+	temperatures := make([]float32, len(e.solidMask))
+	for i, solid := range e.solidMask {
+		if solid != 0 {
+			temperatures[i] = float32(params.InitialTemp)
+		} else {
+			temperatures[i] = float32(params.AmbientTemp)
+		}
+	}
+
+	e.physics = params
+	e.temperatures = temperatures
+	e.time = 0
+	e.failure = nil
+	e.state = Ready
+
 }
 
 func (e *Engine) AddHeatPoint(point HeatPoint) (int, error) {
@@ -119,4 +159,34 @@ func (e *Engine) GetRenderSnapshot(stride int) (RenderSnapshot, error) {
 
 func (e *Engine) GetPoint(position Point3D) (float64, bool) {
 	panic("not implemented")
+}
+
+func isValidMaterial(id MaterialID) bool {
+	switch id {
+	case MaterialAluminum,
+		MaterialCopper,
+		MaterialIron,
+		MaterialNickel,
+		MaterialPlatinum,
+		MaterialGold,
+		MaterialSilver,
+		MaterialLead,
+		MaterialMagnesium,
+		MaterialZinc,
+		MaterialGlass,
+		MaterialConcrete,
+		MaterialGranite:
+		return true
+	default:
+		return false
+	}
+}
+
+func isValidEnvironment(id EnvironmentID) bool {
+	switch id {
+	case EnvironmentAir, EnvironmentVacuum:
+		return true
+	default:
+		return false
+	}
 }
