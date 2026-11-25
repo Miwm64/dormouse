@@ -13,7 +13,7 @@ import (
 var engine simulator.SimulatorEngine
 
 func main() {
-	engine = &simulator.MockEngine{}
+	engine = simulator.NewEngine()
 
 	js.Global().Set("Simulator", createAPI())
 	select {}
