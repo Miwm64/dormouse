@@ -15,11 +15,15 @@ type Engine struct {
 
 	time    float64 // seconds
 	failure *FailureEvent
+
+	heatPoints      map[int]activeHeatPoint
+	nextHeatPointID int
 }
 
 func NewEngine() *Engine {
 	return &Engine{
-		state: Uninitialized,
+		state:           Uninitialized,
+		nextHeatPointID: 0,
 	}
 }
 
@@ -93,15 +97,50 @@ func (e *Engine) SetPhysicsParams(params PhysicsParams) error {
 	e.time = 0
 	e.failure = nil
 	e.state = Ready
-
+	return nil
 }
 
 func (e *Engine) AddHeatPoint(point HeatPoint) (int, error) {
-	panic("not implemented")
+	if e.state != Ready && e.state != Running {
+		return 0, fmt.Errorf("cannot add heat point in state %d", e.state)
+	}
+
+	if point.Radius < e.grid.CellSize {
+		return 0, fmt.Errorf(
+			"heat point radius must be at least %g",
+			e.grid.CellSize,
+		)
+	}
+
+	if point.Duration <= 0 {
+		return 0, fmt.Errorf("heat point duration must be positive")
+	}
+
+	if point.TargetTemp <= 0 {
+		return 0, fmt.Errorf("target temperature in kelvins must be positive")
+	}
+
+	id := e.nextHeatPointID
+	e.heatPoints[id] = activeHeatPoint{point, point.Duration}
+	e.nextHeatPointID++
+
+	return id, nil
 }
 
 func (e *Engine) RemoveHeatPoint(id int) error {
-	panic("not implemented")
+	if e.state != Ready && e.state != Running {
+		return fmt.Errorf(
+			"cannot remove heat point in state %d",
+			e.state,
+		)
+	}
+
+	if _, exists := e.heatPoints[id]; !exists {
+		return fmt.Errorf("heat point %d does not exist", id)
+	}
+
+	delete(e.heatPoints, id)
+	return nil
 }
 
 func (e *Engine) SimulateNext(time float64) (*FailureEvent, error) {
