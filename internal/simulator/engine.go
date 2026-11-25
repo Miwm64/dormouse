@@ -58,10 +58,10 @@ func (e *MockEngine) GetGridView() (GridView, error) {
 
 	return GridView{
 		Grid: GridSpec{
-			LengthX:   size,
-			LengthY:   size,
-			LengthZ:   size,
-			CellSizeM: 1,
+			LengthX:  size,
+			LengthY:  size,
+			LengthZ:  size,
+			CellSize: 1,
 		},
 		Data:      data,
 		SolidMask: nil,
