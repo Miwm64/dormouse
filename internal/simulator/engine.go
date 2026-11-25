@@ -3,7 +3,6 @@ package simulator
 import (
 	"fmt"
 	"math"
-	"math/rand"
 )
 
 type Engine struct {
@@ -192,31 +191,50 @@ func (e *Engine) GetFailure() *FailureEvent {
 }
 
 func (e *Engine) GetGridView() (GridView, error) {
-	const (
-		size    = 5
-		maxTemp = 1273
-	)
-
-	data := make([]float32, size*size*size)
-
-	for i := range data {
-		data[i] = float32(rand.Intn(maxTemp + 1))
+	if len(e.temperatures) != len(e.solidMask) || len(e.temperatures) == 0 {
+		return GridView{}, fmt.Errorf("physics parameters are not set")
 	}
 
 	return GridView{
-		Grid: GridSpec{
-			LengthX:  size,
-			LengthY:  size,
-			LengthZ:  size,
-			CellSize: 1,
-		},
-		Data:      data,
-		SolidMask: nil,
+		Grid:      e.grid,
+		Data:      append([]float32(nil), e.temperatures...),
+		SolidMask: append([]uint8(nil), e.solidMask...),
 	}, nil
 }
 
 func (e *Engine) GetRenderSnapshot(stride int) (RenderSnapshot, error) {
-	panic("not implemented")
+	if stride <= 0 {
+		return RenderSnapshot{}, fmt.Errorf("stride must be positive")
+	}
+
+	if len(e.temperatures) != len(e.solidMask) || len(e.temperatures) == 0 {
+		return RenderSnapshot{}, fmt.Errorf("physics parameters are not set")
+	}
+
+	lengthX := (e.grid.LengthX + stride - 1) / stride
+	lengthY := (e.grid.LengthY + stride - 1) / stride
+	lengthZ := (e.grid.LengthZ + stride - 1) / stride
+	cellCount := lengthX * lengthY * lengthZ
+
+	data := make([]float32, 0, cellCount)
+	solidMask := make([]uint8, 0, cellCount)
+
+	for z := 0; z < e.grid.LengthZ; z += stride {
+		for y := 0; y < e.grid.LengthY; y += stride {
+			for x := 0; x < e.grid.LengthX; x += stride {
+				index := x + e.grid.LengthX*(y+e.grid.LengthY*z)
+				data = append(data, e.temperatures[index])
+				solidMask = append(solidMask, e.solidMask[index])
+			}
+		}
+	}
+
+	return RenderSnapshot{
+		SourceGrid: e.grid,
+		Stride:     stride,
+		Data:       data,
+		SolidMask:  solidMask,
+	}, nil
 }
 
 func (e *Engine) GetPoint(position Point3D) (float64, bool) {
