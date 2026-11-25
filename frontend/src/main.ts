@@ -4,7 +4,6 @@ import { N, getData } from './data';
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111); //фон 0x111111 - чёрный
-scene.add(new THREE.AxesHelper(10));
 
 const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 100);
 camera.position.set(N * 2, N * 1.7, N * 2);
