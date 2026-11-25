@@ -1,3 +1,5 @@
 .idea/
 .vscode/
 **/.DS_Store
+frontend/main.wasm
+frontend/wasm_exec.js
