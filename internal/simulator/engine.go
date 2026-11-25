@@ -2,6 +2,7 @@ package simulator
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 )
 
@@ -219,7 +220,65 @@ func (e *Engine) GetRenderSnapshot(stride int) (RenderSnapshot, error) {
 }
 
 func (e *Engine) GetPoint(position Point3D) (float64, bool) {
-	panic("not implemented")
+	if len(e.temperatures) != len(e.solidMask) || len(e.temperatures) == 0 {
+		return 0, false
+	}
+
+	if math.IsNaN(position.X) || math.IsInf(position.X, 0) ||
+		math.IsNaN(position.Y) || math.IsInf(position.Y, 0) ||
+		math.IsNaN(position.Z) || math.IsInf(position.Z, 0) {
+		return 0, false
+	}
+
+	if position.X < 0 || position.X >= float64(e.grid.LengthX)*e.grid.CellSize ||
+		position.Y < 0 || position.Y >= float64(e.grid.LengthY)*e.grid.CellSize ||
+		position.Z < 0 || position.Z >= float64(e.grid.LengthZ)*e.grid.CellSize {
+		return 0, false
+	}
+
+	return e.interpolateTemperature(position), true
+}
+
+func (e *Engine) interpolateTemperature(position Point3D) float64 {
+	gridCoordinate := func(value float64, length int) (int, int, float64) {
+		coordinate := value/e.grid.CellSize - 0.5
+		coordinate = math.Max(0, math.Min(coordinate, float64(length-1)))
+
+		lower := int(math.Floor(coordinate))
+		upper := min(lower+1, length-1)
+		return lower, upper, coordinate - float64(lower)
+	}
+
+	x0, x1, tx := gridCoordinate(position.X, e.grid.LengthX)
+	y0, y1, ty := gridCoordinate(position.Y, e.grid.LengthY)
+	z0, z1, tz := gridCoordinate(position.Z, e.grid.LengthZ)
+
+	temperature := func(x, y, z int) float64 {
+		index := x + e.grid.LengthX*(y+e.grid.LengthY*z)
+		return float64(e.temperatures[index])
+	}
+
+	c000 := temperature(x0, y0, z0)
+	c100 := temperature(x1, y0, z0)
+	c010 := temperature(x0, y1, z0)
+	c110 := temperature(x1, y1, z0)
+	c001 := temperature(x0, y0, z1)
+	c101 := temperature(x1, y0, z1)
+	c011 := temperature(x0, y1, z1)
+	c111 := temperature(x1, y1, z1)
+
+	lerp := func(a, b, t float64) float64 {
+		return a + (b-a)*t
+	}
+
+	c00 := lerp(c000, c100, tx)
+	c10 := lerp(c010, c110, tx)
+	c01 := lerp(c001, c101, tx)
+	c11 := lerp(c011, c111, tx)
+	c0 := lerp(c00, c10, ty)
+	c1 := lerp(c01, c11, ty)
+
+	return lerp(c0, c1, tz)
 }
 
 func isValidMaterial(id MaterialID) bool {
