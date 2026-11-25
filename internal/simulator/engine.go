@@ -148,7 +148,29 @@ func (e *Engine) SimulateNext(time float64) (*FailureEvent, error) {
 }
 
 func (e *Engine) Reset() error {
-	panic("not implemented")
+	if e.state == Uninitialized {
+		return fmt.Errorf("engine is not initialized")
+	}
+
+	if len(e.temperatures) != len(e.solidMask) {
+		return fmt.Errorf("physics parameters are not set")
+	}
+
+	for i, solid := range e.solidMask {
+		if solid != 0 {
+			e.temperatures[i] = float32(e.physics.InitialTemp)
+		} else {
+			e.temperatures[i] = float32(e.physics.AmbientTemp)
+		}
+	}
+
+	e.time = 0
+	e.failure = nil
+	e.heatPoints = make(map[int]activeHeatPoint)
+	e.nextHeatPointID = 0
+	e.state = Ready
+
+	return nil
 }
 
 func (e *Engine) GetState() EngineState {
