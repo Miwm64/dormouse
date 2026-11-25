@@ -22,8 +22,8 @@ type Engine struct {
 
 func NewEngine() *Engine {
 	return &Engine{
-		state:           Uninitialized,
-		nextHeatPointID: 0,
+		state:      Uninitialized,
+		heatPoints: make(map[int]activeHeatPoint),
 	}
 }
 
