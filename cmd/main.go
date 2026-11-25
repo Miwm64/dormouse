@@ -13,6 +13,8 @@ import (
 var engine simulator.SimulatorEngine
 
 func main() {
+	engine = &simulator.MockEngine{}
+
 	js.Global().Set("Simulator", createAPI())
 	select {}
 }
