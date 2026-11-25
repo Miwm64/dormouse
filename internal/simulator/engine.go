@@ -24,7 +24,7 @@ func (e *Engine) Init(shape ShapeData) error {
 	if shape.Grid.LengthX <= 0 ||
 		shape.Grid.LengthY <= 0 ||
 		shape.Grid.LengthZ <= 0 ||
-		shape.Grid.CellSizeM <= 0 {
+		shape.Grid.CellSize <= 0 {
 		return fmt.Errorf("invalid grid dimensions")
 	}
 
@@ -96,10 +96,10 @@ func (e *Engine) GetGridView() (GridView, error) {
 
 	return GridView{
 		Grid: GridSpec{
-			LengthX:   size,
-			LengthY:   size,
-			LengthZ:   size,
-			CellSizeM: 1,
+			LengthX:  size,
+			LengthY:  size,
+			LengthZ:  size,
+			CellSize: 1,
 		},
 		Data:      data,
 		SolidMask: nil,
