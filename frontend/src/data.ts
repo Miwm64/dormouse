@@ -71,6 +71,63 @@ export type GridData = {
   mask: Uint8Array;  // 1 = ячейка внутри фигуры
 };
 
+// Клетки вне фигуры хранят температуру среды, а поверхность фигуры проходит как раз
+// по границе между «телом» и «средой». Из-за этого цвет на краю смешивается с
+// температурой среды: появляются тёмные пятна и полосы. Поэтому для показа
+// заполняем пустые клетки у границы значениями ближайших клеток тела.
+// Клетки далеко от фигуры всё равно не видны, их трогать не нужно.
+function fillOutside(
+  bytes: Uint8Array,
+  mask: Uint8Array,
+  lengthX: number,
+  lengthY: number,
+  lengthZ: number,
+  layers = 2, // на сколько клеток от границы заполняем
+): void {
+  const known = Uint8Array.from(mask); // 1 = значение клетки можно использовать
+
+  for (let layer = 0; layer < layers; layer++) {
+    const filled: number[] = [];
+
+    for (let z = 0; z < lengthZ; z++) {
+      for (let y = 0; y < lengthY; y++) {
+        for (let x = 0; x < lengthX; x++) {
+          const i = x + lengthX * (y + lengthY * z);
+          if (known[i]) continue;
+
+          // среднее по соседним клеткам (до 26 штук вокруг), у которых значение есть
+          let sum = 0;
+          let count = 0;
+          for (let dz = -1; dz <= 1; dz++) {
+            for (let dy = -1; dy <= 1; dy++) {
+              for (let dx = -1; dx <= 1; dx++) {
+                const nx = x + dx;
+                const ny = y + dy;
+                const nz = z + dz;
+                if (nx < 0 || ny < 0 || nz < 0 || nx >= lengthX || ny >= lengthY || nz >= lengthZ) continue;
+                const j = nx + lengthX * (ny + lengthY * nz);
+                if (known[j]) {
+                  sum += bytes[j];
+                  count++;
+                }
+              }
+            }
+          }
+
+          if (count > 0) {
+            bytes[i] = Math.round(sum / count);
+            filled.push(i);
+          }
+        }
+      }
+    }
+
+    // клетки этого слоя становятся «известными» только после прохода,
+    // иначе результат зависел бы от порядка обхода
+    for (const i of filled) known[i] = 1;
+  }
+}
+
 export function getData(shape: Shape): GridData {
   // Размеры сетки пока берём из заглушки. С настоящим беком они придут в ответе.
   const mask = makeMask(shape, FAKE.lengthX, FAKE.lengthY, FAKE.lengthZ);
@@ -91,6 +148,8 @@ export function getData(shape: Shape): GridData {
     const t = (celsius - T_MIN) / (T_MAX - T_MIN); // 0..1
     bytes[i] = Math.round(Math.min(1, Math.max(0, t)) * 255);
   }
+
+  fillOutside(bytes, mask, lengthX, lengthY, lengthZ);
 
   return { lengthX, lengthY, lengthZ, bytes, mask };
 }

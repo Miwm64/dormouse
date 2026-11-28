@@ -4,19 +4,46 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { getData, T_MIN, T_MAX } from './data';
 import { SHAPES, makeGeometry, type Shape } from './shapes';
 
+const layout = document.createElement('div');
+layout.classList.add('layout');
+
+const viewport = document.createElement('div');
+viewport.classList.add('viewport');
+
+const sidePanel = document.createElement('aside');
+sidePanel.classList.add('side-panel');
+
+layout.append(viewport, sidePanel);
+document.body.appendChild(layout);
+
+
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111); //фон 0x111111 - чёрный
 scene.add(new THREE.AxesHelper(200));
 
-const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
+//1 - временное, настоящее ставится в ResizeObserver
+const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(innerWidth, innerHeight);
-document.body.style.margin = '0';
-document.body.appendChild(renderer.domElement);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+viewport.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 
+// Размер холста всегда равен размеру viewport. Срабатывает при запуске,
+// при изменении окна и на каждом кадре анимации панели.
+new ResizeObserver(([entry]) => {
+  const { width, height } = entry.contentRect;
+  if (width === 0 || height === 0) return;
+
+  renderer.setSize(width, height);
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+
+  renderer.render(scene, camera);
+}).observe(viewport);
+
+// ---------- Палитра ----------
 const STOPS: [number, string][] = [
   [50,   '#0a1a5c'], // тёмно-синий
   [150,  '#1f4fd8'], // синий
@@ -29,13 +56,15 @@ const STOPS: [number, string][] = [
   [1000, '#ffffff'], // белый (выше не меняется)
 ];
 
-function makePalette(): THREE.DataTexture {
-  const SIZE = 256;
-  const rgba = new Uint8Array(SIZE * 4);
+
+const PALETTE_SIZE = 256;
+
+const PALETTE_RGBA = (() => {
+  const rgba = new Uint8Array(PALETTE_SIZE * 4);
   const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 
-  for (let i = 0; i < SIZE; i++) {
-    const temp = T_MIN + (i / (SIZE - 1)) * (T_MAX - T_MIN);
+  for (let i = 0; i < PALETTE_SIZE; i++) {
+    const temp = T_MIN + (i / (PALETTE_SIZE - 1)) * (T_MAX - T_MIN);
 
     // две соседние цветовые точки, между которыми лежит temp
     let k = 0;
@@ -49,8 +78,11 @@ function makePalette(): THREE.DataTexture {
     for (let j = 0; j < 3; j++) rgba[i * 4 + j] = Math.round(a[j] + (b[j] - a[j]) * f);
     rgba[i * 4 + 3] = 255;
   }
+  return rgba;
+})();
 
-  const palette = new THREE.DataTexture(rgba, SIZE, 1, THREE.RGBAFormat);
+function makePalette(): THREE.DataTexture {
+  const palette = new THREE.DataTexture(PALETTE_RGBA, PALETTE_SIZE, 1, THREE.RGBAFormat);
   palette.minFilter = THREE.LinearFilter;
   palette.magFilter = THREE.LinearFilter;
   palette.needsUpdate = true;
@@ -90,10 +122,14 @@ const material = new THREE.ShaderMaterial({
 const figure = new THREE.Mesh(new THREE.BufferGeometry(), material);
 scene.add(figure);
 
-// Панель выбора фигуры
-const panel = document.createElement('div');
-panel.classList.add('control-panel');
-document.body.appendChild(panel);
+// Боковая панель
+const heading = document.createElement('h2');
+heading.textContent = 'Фигура';
+
+const shapeList = document.createElement('div');
+shapeList.classList.add('shape-list');
+
+sidePanel.append(heading, shapeList);
 
 const buttons = new Map<Shape, HTMLButtonElement>();
 for (const { id, label } of SHAPES) {
@@ -101,15 +137,24 @@ for (const { id, label } of SHAPES) {
   button.textContent = label;
   button.classList.add('control-button');
   button.addEventListener('click', () => setShape(id));
-  panel.appendChild(button);
+  shapeList.appendChild(button);
   buttons.set(id, button);
 }
+
+const toggle = document.createElement('button');
+toggle.classList.add('panel-toggle');
+toggle.textContent = '☰';
+toggle.title = 'Показать / скрыть панель';
+toggle.addEventListener('click', () => layout.classList.toggle('collapsed'));
+viewport.appendChild(toggle);
+
+
 
 let cameraPlaced = false;
 
 function setShape(shape: Shape) {
   for (const [id, button] of buttons) {
-    button.style.background = id === shape ? '#ff8a3d' : '';
+    button.classList.toggle('active', id === shape);
   }
 
   const { lengthX, lengthY, lengthZ, bytes } = getData(shape);
@@ -117,8 +162,8 @@ function setShape(shape: Shape) {
   const texture = new THREE.Data3DTexture(bytes, lengthX, lengthY, lengthZ);
   texture.format = THREE.RedFormat;
   texture.type = THREE.UnsignedByteType;
-  texture.minFilter = THREE.NearestFilter;
-  texture.magFilter = THREE.NearestFilter; //THREE.NearestFilter THREE.LinearFilter
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter; //THREE.NearestFilter THREE.LinearFilter
   texture.unpackAlignment = 1;
   texture.needsUpdate = true;
 
@@ -147,25 +192,22 @@ function createPaletteLegend() {
   canvas.width = width;
   canvas.height = height;
   canvas.classList.add('palette-legend');
-  document.body.appendChild(canvas);
+  viewport.appendChild(canvas);
 
-  const paletteTexture = makePalette();
-
-  const tempCanvas = document.createElement('canvas');
-  const tempCtx = tempCanvas.getContext('2d')!;
-  tempCanvas.width = 256;
-  tempCanvas.height = 1;
-  
-  const imageData = tempCtx.createImageData(256, 1);
-  imageData.data.set(paletteTexture.image.data);
-  tempCtx.putImageData(imageData, 0, 0);
+  const strip = document.createElement('canvas');
+  strip.width = PALETTE_SIZE;
+  strip.height = 1;
+  const stripCtx = strip.getContext('2d')!;
+  const imageData = stripCtx.createImageData(PALETTE_SIZE, 1);
+  imageData.data.set(PALETTE_RGBA);
+  stripCtx.putImageData(imageData, 0, 0);
 
   const drawX = 10;
   const drawY = 10;
   const drawWidth = width - 20;
   const drawHeight = 15;
   
-  ctx.drawImage(tempCanvas, drawX, drawY, drawWidth, drawHeight);
+  ctx.drawImage(strip, drawX, drawY, drawWidth, drawHeight);
 
   //Мин и Макс температура
   ctx.fillStyle = '#ffffff';
